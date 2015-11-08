@@ -23,40 +23,74 @@ FD=cell2num(cellstr(QQ1(6:end)));
 Ly=cell2num(cellstr(QQ2(1:4)));
 LD=cell2num(cellstr(QQ2(6:end)));
 
+%% init figure
+%parameters for figure and panel size
+NumberofPlot=size(Dt,2);
+plotheight=20;
+plotwidth=16;
+subplotsx=floor(NumberofPlot^0.5);
+subplotsy=ceil(NumberofPlot/subplotsx);
+leftedge=1.2;
+rightedge=0.4;
+topedge=1;
+bottomedge=1.5;
+spacex=1;
+spacey=1;
+fontsize=10;
+sub_pos=subplot_pos(plotwidth,plotheight,leftedge,rightedge,bottomedge,topedge,subplotsx,subplotsy,spacex,spacey);
+
+%setting the Matlab figure
+f=figure('visible','on');
+clf(f);
+set(gcf, 'PaperUnits', 'centimeters');
+set(gcf, 'PaperSize', [plotwidth plotheight]);
+set(gcf, 'PaperPositionMode', 'manual');
+set(gcf, 'PaperPosition', [0 0 plotwidth plotheight]);
+
+
+
 %%
-for j=2:size(Dt,2)
-X=double(Dt(:,j));
-st=mbbq(X,freq,Fy,FD,Ly,LD,lg); % I changed the mfile from the Original Source
-
-Dt.(['Booms_' Dt.Properties.VarNames{j}])=st;
-
-%% Ploting
-ss=st-lagmatrix(st,1);
-Pk=find(ss==1);
-tr=find(ss==-1);
-a=size(Pk,1)-size(tr,1);
-if a==1
-    tr(end+1)=size(X,1)+1;
-elseif a==-1
-    Pk(end+1)=2;
-    Pk=sort(Pk);
-end
-z=[Pk-1,tr-1];
-mX=min(X);
-MX=max(X);
-mm=repmat([mX, MX , MX,mX],size(z,1),1);
-zz=[z(:,1),z(:,1),z(:,2),z(:,2)];
-grbkgrnd = [.8 .8 .8];
-%
-figure;
-hold on
-h = patch(zz.',mm.',grbkgrnd);
-set(h,'linestyle','none')
-plot(X,'black');
-% %xlabel(Dt.date);
-axis([0 length(X) mX MX])
-
-hold off
+for i=1:subplotsx
+    for ii=1:subplotsy
+        j=i+ii;
+        if j>NumberofPlot
+            break;
+        end
+        %for j=2:size(Dt,2)
+        X=double(Dt(:,j));
+        st=mbbq(X,freq,Fy,FD,Ly,LD,lg); % I changed the mfile from the Original Source
+        
+        Dt.(['Booms_' Dt.Properties.VarNames{j}])=st;
+        
+        %% Ploting
+        ss=st-lagmatrix(st,1);
+        Pk=find(ss==1);
+        tr=find(ss==-1);
+        a=size(Pk,1)-size(tr,1);
+        if a==1
+            tr(end+1)=size(X,1)+1;
+        elseif a==-1
+            Pk(end+1)=2;
+            Pk=sort(Pk);
+        end
+        z=[Pk-1,tr-1];
+        mX=min(X);
+        MX=max(X);
+        mm=repmat([mX, MX , MX,mX],size(z,1),1);
+        zz=[z(:,1),z(:,1),z(:,2),z(:,2)];
+        grbkgrnd = [.8 .8 .8];
+        %
+        %figure;
+        ax=axes('position',sub_pos{i,ii},'XGrid','off','XMinorGrid','off','FontSize',fontsize,'Box','on','Layer','top');
+        hold on
+        h = patch(zz.',mm.',grbkgrnd);
+        set(h,'linestyle','none')
+        plot(X,'black');
+        % %xlabel(Dt.date);
+        axis([0 length(X) mX MX])
+        
+        hold off
+    end
 end
 export(Dt,'xlsfile','dd')
 end
@@ -106,68 +140,7 @@ for c=1:size(inputcell,2)
 end
 
 end
-% function CP=UT(X,Equator)
-%
-% CP=[]; % critical point
-% X(X<Equator)=0;
-% while(max(X)>0)
-%     A=max(X);
-%     [A, B]=find(X==A);
-%     CP=[CP; A];
-%     for l=1:length(A)
-%         i=A(l);
-%         if i<=size(X,1)
-%             while(X(i)>0 )%|| i-A(l)<=MinLeng )
-%                 X(i)=0;
-%                 i=i+1;
-%                 if i>size(X,1)
-%                     break;
-%                 end
-%             end
-%         end
-%
-%         i=A(l)-1;
-%         if i>=1
-%             while(X(i)>0)%|| A(l)-i<=MinLeng )
-%                 X(i)=0;
-%
-%                 i=i-1;
-%                 if i<1
-%                     break;
-%                 end
-%             end
-%         end
-%     end
-%
-% end
-% CP=sort(CP);
-% end
-%
-% function Z=Sorter(Peaks,Troughs)
-% MinLeng=2;
-% Troughs(Troughs<Peaks(1))=[];
-% Peaks(Peaks>Troughs(end))=[];
-% A= length(Peaks)-length(Troughs);
-%
-% if  length(Peaks)~=length(Troughs)
-%
-%     error('Problem A~=0');
-% end
-%
-% Z=Troughs-Peaks;
-% if sum(Z<0)>0
-%     warning('Problem in Peaks order');
-% end
-% if sum(Z<MinLeng)>0
-%     warning('Problem in Cycle Length');
-%     %Troughs(Z<3)=[];
-%     %Peaks(Z<3)=[];
-% end
-% Z=[Peaks,Troughs];
-%
-% end
-%
-%
+
 % function [Y,Dat]=modifyData(Dt, DeS, Lg, Hp)
 %
 % addpath('E:/MINE/P11_Monetary Mechanism/Matlab/SVECX2/IRIS_Tbx');
@@ -207,4 +180,44 @@ end
 %
 % %Y=Dt(:,2);
 % end
-%
+
+function [ positions ] = subplot_pos(plotwidth,plotheight,leftmargin,rightmargin,bottommargin,topmargin,nbx,nby,spacex,spacey)
+%UNTITLED2 Summary of this function goes here
+%   Detailed explanation goes here
+
+subxsize=(plotwidth-leftmargin-rightmargin-spacex*(nbx-1.0))/nbx;
+subysize=(plotheight-topmargin-bottommargin-spacey*(nby-1.0))/nby;
+
+for i=1:nbx
+    for j=1:nby
+        
+        xfirst=leftmargin+(i-1.0)*(subxsize+spacex);
+        yfirst=bottommargin+(j-1.0)*(subysize+spacey);
+        
+        positions{i,1+nby-j}=[xfirst/plotwidth yfirst/plotheight subxsize/plotwidth subysize/plotheight];
+        
+    end
+end
+
+
+%setting the Matlab figure
+f=figure('visible','off');
+clf(f);
+set(gcf, 'PaperUnits', 'centimeters');
+set(gcf, 'PaperSize', [plotwidth plotheight]);
+set(gcf, 'PaperPositionMode', 'manual');
+set(gcf, 'PaperPosition', [0 0 plotwidth plotheight]);
+end
+
+function Printer(filename)
+Adr='OUT\';
+%Adr='E:\MINE\PrjData_94_1\Code_matlab\OUT\img\';
+if ~exist(Adr,'dir')
+    mkdir(Adr);
+end
+filename=[Adr filename];
+print(gcf, '-depsc2','-loose',[filename,'.eps']);
+system(['epstopdf ',filename,'.eps']);
+%system(['convert -density 300 ',filename,'.eps ',filename,'.png'])
+close gcf;
+end
