@@ -9,8 +9,8 @@ addpath([cd '/bbq_000']);
 
 
 %% find date
-QQ1=char(Dt.Date(1));
-QQ2=char(Dt.Date(end));
+QQ1=Dt.Date{1};
+QQ2=Dt.Date{end};
 
 if strcmp(QQ1(5),'Q')
     freq=1;
@@ -18,14 +18,14 @@ else
     freq=2;
 end
 
-Fy=cell2num(cellstr(QQ1(1:4)));
-FD=cell2num(cellstr(QQ1(6:end)));
-Ly=cell2num(cellstr(QQ2(1:4)));
-LD=cell2num(cellstr(QQ2(6:end)));
+Fy=str2num(QQ1(1:4));
+FD=str2num(QQ1(6:end));
+Ly=str2num(QQ2(1:4));
+LD=str2num(QQ2(6:end));
 
 %% init figure
 %parameters for figure and panel size
-NumberofPlot=size(Dt,2);
+NumberofPlot=size(Dt,2)-1;
 plotheight=20;
 plotwidth=16;
 subplotsx=floor(NumberofPlot^0.5);
@@ -50,10 +50,11 @@ set(gcf, 'PaperPosition', [0 0 plotwidth plotheight]);
 
 
 %%
+
 for i=1:subplotsx
     for ii=1:subplotsy
-        j=i+ii;
-        if j>NumberofPlot
+        j=(i-1)*subplotsx+ii+1;% the one is for Date Column in the begining of Data
+        if j>NumberofPlot+1% the one is for Date Column in the begining of Data
             break;
         end
         %for j=2:size(Dt,2)
@@ -86,13 +87,19 @@ for i=1:subplotsx
         h = patch(zz.',mm.',grbkgrnd);
         set(h,'linestyle','none')
         plot(X,'black');
+        title(Dt.Properties.VarNames{j});
         % %xlabel(Dt.date);
         axis([0 length(X) mX MX])
-        
+        if ii==subplotsy || j==NumberofPlot+1
+           set(gca,'XTicklabel',Dt.Date.','fontsize',8,'XTickLabelRotation',90);  
+        else
+           set(gca,'XTick',[]); 
+        end
         hold off
     end
 end
-export(Dt,'xlsfile','dd')
+Printer('Res')
+export(Dt,'xlsfile','out\Res')
 end
 function [outputmat]=cell2num(inputcell)
 % this function is modified from the first usage
