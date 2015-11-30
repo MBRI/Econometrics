@@ -53,7 +53,7 @@ set(gcf, 'PaperPosition', [0 0 plotwidth plotheight]);
 
 for i=1:subplotsx
     for ii=1:subplotsy
-        j=(i-1)*subplotsx+ii+1;% the one is for Date Column in the begining of Data
+        j=(i-1)*subplotsy+ii+1;% the one is for Date Column in the begining of Data
         if j>NumberofPlot+1% the one is for Date Column in the begining of Data
             break;
         end
