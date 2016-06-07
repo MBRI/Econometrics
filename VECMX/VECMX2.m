@@ -1,5 +1,5 @@
 
-function VECMX2
+function [xfinal,nM]=VECMX2
 clear
 
 %Inputs
@@ -32,6 +32,10 @@ RYL(3,1)=0; RYL(3,2)=1; RYL(3,3)=-1; RYL(3,4)=0;  RYL(3,5)=0; RYL(3,7)=0; RYL(3,
 RYC(7,1)=0; RYC(7,2)=0; RYC(7,3)=0;    
 RYC(6,1)=0; RYC(6,2)=0; RYC(6,3)=0;    
 RYC(8,1)=0; RYC(8,2)=0; RYC(8,3)=0;
+
+
+%  restriction for Cov Mtrix
+RSig=diag(nan(nY,1));
 %% Prim Parameters
 % number of I(1) variables.
 NI1=size(Y,2);
@@ -60,12 +64,13 @@ a = sym('a',[NI1,r]);
 b = sym('b',[r,NI1]);
 g= sym('g',[NI1,NI1]);
 h = sym('h',[NI1,NI0]);
-% Sig=sym('Sig',[NI1,NI1]);
+Sig=sym('Sig',[NI1,NI1]);
 % impose restriction
-a(isfinite(RYC))=RYC(isfinite(RYC));
-b(isfinite(RYL))=RYL(isfinite(RYL));
-g(isfinite(RDS))=RDS(isfinite(RDS));
-h(isfinite(RX))=RX(isfinite(RX));
+a(isfinite(RYC))=RYC(isfinite(RYC)); % short run Restriction on Correction term
+b(isfinite(RYL))=RYL(isfinite(RYL)); % Long run Restriction
+g(isfinite(RDS))=RDS(isfinite(RDS)); % short run Restriction on deffrences
+h(isfinite(RX))=RX(isfinite(RX)); % Restriction Exogensios var
+Sig(isfinite(RSig))=RSig(isfinite(RSig)); % Va-cov Matrix Restrictions
 
 % build error symbolic function
 Y2=lagmatrix(Y,1);
@@ -82,34 +87,35 @@ e=Y1.'-a*b*Y2.'-g*Y3.'-h*X.';
 % every ??Columns?? of e ccorrespond to a normal distribution  
 K=NI1;
 T=NP;
-Sig=eye(K);
-Teta=[issym(a);issym(b);issym(g);issym(h)];
+%Sig=eye(K);
+Teta=[symvar(e),symvar(Sig)];%[issym(a);issym(b);issym(g);issym(h)];
 
 ML= -((K*T)/2)*log(2*pi)-(T/2)*log(det(Sig))-(1/2)*trace(e.'*Sig^-1*e); % -((K*T)/2)*log(2*pi)
 
 
-gradf = jacobian(ML,Teta).'; % column gradf
-hessf = jacobian(gradf,Teta);
+options = optimoptions('fminunc','Display','notify-detailed','Algorithm','quasi-newton','MaxFunctionEvaluations',10^20,'OptimalityTolerance',10^-3); %'trust-region'
+ML2 = matlabFunction(ML,'vars',{Teta});
+% fh2 = objective with no gradient or Hessian
+[xfinal,fval,exitflag,output2] = fminunc(ML2,SPoint(Teta,Y,Y1,Y2,Y3,X),options);
+nM=char(Teta);
+%xfinal;
 
-fh = matlabFunction(ML,gradf,hessf,'vars',{Teta});
-
-options = optimoptions('fminunc','GradObj','on','Hessian','on', ...
-    'Algorithm','trust-region','Display','final');
-[xfinal,fval,exitflag,output] = fminunc(fh,[-1;2],options);
 end
 %% Stage2: Calculate asymptotic distributions
 % it is not the case now
-function answer = issym (A)
-[T , K]=size(A);
-answer=[];%nan(T*K,1);
-for i=1:T
-    for j=1:K
-        a=A(i,j);
-        try
-            double(a);
-        catch
-            answer=[answer ;a];
-        end
-    end
-end
+%% other
+function [Res]=SPoint(Teta,Y,Y1,Y2,Y3,X,a,b,g,h)
+% find startinf point for estimation
+n_P=size(Teta,2);
+Res=ones(1,n_P);
+%[~,~,~,~,mles] = jcitest(Y,'model','H1','lags',1,'display','params');
+
+%Par=mles.r3(1,1).paramVals;
+%a=Par.A;
+Tt=symvar(b);
+BH=double(subs(b,Tt,ones(size(Tt)))); % Initail b
+
+XX=[BH*Y2.';Y3.';X.']; %e=Y1.'-a*BH*Y2.'-g*Y3.'-h*X.';
+AH=(XX.'*XX)^-1*XX.'*Y1;
+%[h2,pValue2,stat2,cValue2,mles2] = jcontest(Y,1,'BCon',[1 -1 -1]','lags',2)
 end
