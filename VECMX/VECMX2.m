@@ -92,15 +92,27 @@ Teta=[symvar(e),symvar(Sig)];%[issym(a);issym(b);issym(g);issym(h)];
 
 ML= -(T/2)*log(det(Sig))-(1/2)*trace(e.'*Sig^-1*e); % -((K*T)/2)*log(2*pi)
 
-
+%{
 options = optimoptions('fminunc','Display','final','Algorithm','quasi-newton','MaxFunctionEvaluations',10^20);%,'OptimalityTolerance',10^-20); %'trust-region' 'notify-detailed'
 ML2 = matlabFunction(ML,'vars',{Teta});
 % fh2 = objective with no gradient or Hessian
 StartingPoint=SPoint(Teta,Y,Y1,Y2,Y3,X,r);
-[xfinal,fval,exitflag,output2] = fminunc(ML2,StartingPoint,options);
+[xfinal,fval,exitflag,output] = fminunc(ML2,StartingPoint,options);
 
 options=optimset('MaxFunEvals',10^20,'MaxIter',10^20);
 x = fminsearch(ML2,StartingPoint,options);
+%}
+%%
+gradf = jacobian(ML,Teta).'; % column gradf
+hessf = jacobian(gradf,Teta);
+ML2 = matlabFunction(ML,gradf,hessf,'vars',{Teta});
+options = optimoptions('fminunc', ...
+    'SpecifyObjectiveGradient', true, ...
+    'HessianFcn', 'objective', ...
+    'Algorithm','trust-region', ...
+    'Display','final','MaxFunctionEvaluations',10^20);
+[xfinal,fval,exitflag,output] = fminunc(ML2,StartingPoint,options);
+%%
 bar(xfinal-StartingPoint)
 
 %% assighn to matrix
@@ -119,7 +131,7 @@ xfinal.h=double(h);
 xfinal.Sig=double(Sig);
 xfinal.fval=fval;
 xfinal.exitflag=exitflag;
-xfinal.output2=output2;
+xfinal.output=output;
 %%
 %nM=char(Teta);
 %xfinal;
