@@ -106,6 +106,7 @@ x = fminsearch(ML2,StartingPoint,options);
 gradf = jacobian(ML,Teta).'; % column gradf
 hessf = jacobian(gradf,Teta);
 ML2 = matlabFunction(ML,gradf,hessf,'vars',{Teta});
+%{
 options = optimoptions('fminunc', ...
     'SpecifyObjectiveGradient', true, ...
     'HessianFcn', 'objective', ...
@@ -113,6 +114,8 @@ options = optimoptions('fminunc', ...
     'Display','final','MaxFunctionEvaluations',10^20);
 [xfinal,fval,exitflag,output] = fminunc(ML2,StartingPoint,options);
 %%
+%}
+xfinal=ga(ML2,length(Teta))
 bar(xfinal-StartingPoint)
 
 %% assighn to matrix
