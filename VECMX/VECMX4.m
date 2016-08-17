@@ -1,5 +1,5 @@
 
-function [xfinal]=VECMX2
+function [xfinal]=VECMX4
 clear
 tic;
 %Inputs
@@ -91,12 +91,12 @@ T=NP;
 Teta=[symvar(e),symvar(Sig)];%[issym(a);issym(b);issym(g);issym(h)];
 
 ML= -(T/2)*log(det(Sig))-(1/2)*trace(e.'*Sig^-1*e); % -((K*T)/2)*log(2*pi)
-
+StartingPoint=SPoint(Teta,Y,Y1,Y2,Y3,X,r);
 %{
 options = optimoptions('fminunc','Display','final','Algorithm','quasi-newton','MaxFunctionEvaluations',10^20);%,'OptimalityTolerance',10^-20); %'trust-region' 'notify-detailed'
 ML2 = matlabFunction(ML,'vars',{Teta});
 % fh2 = objective with no gradient or Hessian
-StartingPoint=SPoint(Teta,Y,Y1,Y2,Y3,X,r);
+
 [xfinal,fval,exitflag,output] = fminunc(ML2,StartingPoint,options);
 
 options=optimset('MaxFunEvals',10^20,'MaxIter',10^20);
@@ -106,16 +106,21 @@ x = fminsearch(ML2,StartingPoint,options);
 gradf = jacobian(ML,Teta).'; % column gradf
 hessf = jacobian(gradf,Teta);
 ML2 = matlabFunction(ML,gradf,hessf,'vars',{Teta});
-%{
-options = optimoptions('fminunc', ...
-    'SpecifyObjectiveGradient', true, ...
-    'HessianFcn', 'objective', ...
-    'Algorithm','trust-region', ...
-    'Display','final','MaxFunctionEvaluations',10^20);
-[xfinal,fval,exitflag,output] = fminunc(ML2,StartingPoint,options);
-%%
-%}
-xfinal=ga(ML2,length(Teta))
+
+%options = optimoptions('fmincon', ...
+%    'SpecifyObjectiveGradient', true, ...
+%    'HessianFcn', 'objective', ...
+%    'Algorithm','trust-region', ...
+%    'Display','final','MaxFunctionEvaluations',10^20);
+%[xfinal,fval,exitflag,output] = fminunc(ML2,StartingPoint,options);
+options = optimoptions(@fmincon,'Algorithm','interior-point');
+
+problem = createOptimProblem('fmincon','objective',...
+ ML2,'x0',StartingPoint,'lb',StartingPoint-1,'ub',StartingPoint+1,'options',options); % 
+gs = GlobalSearch;
+disp('Solving started');
+[x,f] = run(gs,problem);
+
 bar(xfinal-StartingPoint)
 
 %% assighn to matrix

@@ -78,6 +78,8 @@ Y1=Y-Y2;
 Y3=lagmatrix(Y1,1);
 [Y1,Y2,Y3,X]=remnan(Y1,Y2,Y3,X);
 e=Y1.'-a*b*Y2.'-g*Y3.'-h*X.';
+%eA=Y1.'-a*b*Y2.'-g*Y3.'-h*X.';
+eA=[a(:);g(:);h(:)];
 %e=e.';
 % ML
 
@@ -88,44 +90,57 @@ e=Y1.'-a*b*Y2.'-g*Y3.'-h*X.';
 K=NI1;
 T=NP;
 %Sig=eye(K);
-Teta=[symvar(e),symvar(Sig)];%[issym(a);issym(b);issym(g);issym(h)];
-
+TetaA=[symvar(eA),symvar(Sig)];%[issym(a);issym(b);issym(g);issym(h)];
+TetaB=[symvar(b),symvar(Sig)];
+[StartingPointA,StartingPointB]=SPoint(TetaA,TetaB,Y,Y1,Y2,Y3,X,r);
+e=Y1.'-a*b*Y2.'-g*Y3.'-h*X.';
 ML= -(T/2)*log(det(Sig))-(1/2)*trace(e.'*Sig^-1*e); % -((K*T)/2)*log(2*pi)
-
-%{
-options = optimoptions('fminunc','Display','final','Algorithm','quasi-newton','MaxFunctionEvaluations',10^20);%,'OptimalityTolerance',10^-20); %'trust-region' 'notify-detailed'
-ML2 = matlabFunction(ML,'vars',{Teta});
-% fh2 = objective with no gradient or Hessian
-StartingPoint=SPoint(Teta,Y,Y1,Y2,Y3,X,r);
-[xfinal,fval,exitflag,output] = fminunc(ML2,StartingPoint,options);
-
-options=optimset('MaxFunEvals',10^20,'MaxIter',10^20);
-x = fminsearch(ML2,StartingPoint,options);
-%}
-%%
-gradf = jacobian(ML,Teta).'; % column gradf
-hessf = jacobian(gradf,Teta);
-ML2 = matlabFunction(ML,gradf,hessf,'vars',{Teta});
-%{
 options = optimoptions('fminunc', ...
     'SpecifyObjectiveGradient', true, ...
+    'MaxIterations',10^3, ...
     'HessianFcn', 'objective', ...
     'Algorithm','trust-region', ...
     'Display','final','MaxFunctionEvaluations',10^20);
-[xfinal,fval,exitflag,output] = fminunc(ML2,StartingPoint,options);
-%%
-%}
-xfinal=ga(ML2,length(Teta))
-bar(xfinal-StartingPoint)
+%% 
+for itr=1:400
+% minB
+MLB=subs(ML,TetaA,StartingPointA);
 
-%% assighn to matrix
-for i=1:length(Teta)
-   a=subs(a,Teta(i), xfinal(i));
-   b=subs(b,Teta(i), xfinal(i));
-   g=subs(g,Teta(i), xfinal(i));
-   h=subs(h,Teta(i), xfinal(i));
-   Sig=subs(Sig,Teta(i), xfinal(i));
+gradf = jacobian(MLB,TetaB).'; % column gradf
+hessf = jacobian(gradf,TetaB);
+MLB2 = matlabFunction(MLB,gradf,hessf,'vars',{TetaB});
+
+
+[xfinalB,fval,exitflag,output] = fminunc(MLB2,StartingPointB,options);
+%%
+% minA
+MLA=subs(ML,TetaB,xfinalB);
+
+gradf = jacobian(MLA,TetaA).'; % column gradf
+hessf = jacobian(gradf,TetaA);
+MLA2 = matlabFunction(MLA,gradf,hessf,'vars',{TetaA});
+
+[xfinalA,fval,exitflag,output] = fminunc(MLA2,StartingPointA,options);
+%%
+if sum([(xfinalB-StartingPointB).^2,(xfinalA-StartingPointA).^2]>0.05)==0
+    break
 end
+StartingPointB=xfinalB;
+StartingPointA=xfinalA;
+end
+%% assighn to matrix
+for i=1:length(TetaA)
+   a=subs(a,TetaA(i), xfinalA(i));
+   %b=subs(b,TetaB(i), xfinalB(i));
+   g=subs(g,TetaA(i), xfinalA(i));
+   h=subs(h,TetaA(i), xfinalA(i));
+   Sig=subs(Sig,TetaA(i), xfinalA(i));
+end
+
+for i=1:length(TetaB)
+  b=subs(b,TetaB(i), xfinalB(i));
+end
+
 xfinal=struct();
 xfinal.a=double(a);
 xfinal.b=double(b);
@@ -144,6 +159,69 @@ end
 %% Stage2: Calculate asymptotic distributions
 % it is not the case now
 %% other
+function [A,B]=SPoint(TetaA,TetaB,Y,Y1,Y2,Y3,X,r)
+% find startinf point for estimation
+%n_P=size(Teta,2);
+%Res=ones(1,n_P);
+[~,~,~,~,mles] = jcitest(Y,'model','H1','lags',1,'display','off'); %#ok<ASGLU>
+Par=eval(['mles.r' num2str(r) '(1,1).paramVals']);
+%Extratct Param
+a=Par.A;
+b=Par.B.';
+g=Par.B1;
+
+% X :e=Y1.'-a*b*Y2.'-g*Y3.'-h*X.';
+YY=Y1.'-a*b*Y2.'-g*Y3.';
+h=(X.'*X)^-1*X.'*YY.';
+h=h.';
+%Sig
+e=Y1.'-a*b*Y2.'-g*Y3.'-h*X.';
+Sig=e*e.';
+% Consider restriction
+%{
+a(isfinite(RYC))=RYC(isfinite(RYC)); % short run Restriction on Correction term
+b(isfinite(RYL))=RYL(isfinite(RYL)); % Long run Restriction
+g(isfinite(RDS))=RDS(isfinite(RDS)); % short run Restriction on deffrences
+h(isfinite(RX))=RX(isfinite(RX)); % Restriction Exogensios var
+Sig(isfinite(RSig))=RSig(isfinite(RSig)); % Va-cov Matrix Restrictions
+%}
+A=zeros(size(TetaA));
+for i=1:length(TetaA)
+    Tt=char(TetaA(i));
+    V='';
+    for j=1:length(Tt)
+        if isnan(str2double(Tt(j))) || strcmp(Tt(j),'i') % it is work but not good enough
+            V=[V Tt(j)];
+        else
+            break;
+        end
+    end
+    RC=Tt(j:end);
+    eval(['A(' num2str(i) ')=' V '(' strrep(RC,'_',',') ');']);
+end
+
+B=zeros(size(TetaB));
+for i=1:length(TetaB)
+    Tt=char(TetaB(i));
+    V='';
+    for j=1:length(Tt)
+        if isnan(str2double(Tt(j))) || strcmp(Tt(j),'i') % it is work but not good enough
+            V=[V Tt(j)];
+        else
+            break;
+        end
+    end
+    RC=Tt(j:end);
+    eval(['B(' num2str(i) ')=' V '(' strrep(RC,'_',',') ');']);
+end
+%Tt=symvar(b);
+%BH=double(subs(b,Tt,ones(size(Tt)))); % Initail b
+
+%XX=[BH*Y2.';Y3.';X.']; %e=Y1.'-a*BH*Y2.'-g*Y3.'-h*X.';
+%AH=(XX.'*XX)^-1*XX.'*Y1;
+%[h2,pValue2,stat2,cValue2,mles2] = jcontest(Y,1,'BCon',[1 -1 -1]','lags',2);
+end
+%{ 
 function [Res]=SPoint(Teta,Y,Y1,Y2,Y3,X,r)
 % find startinf point for estimation
 %n_P=size(Teta,2);
@@ -192,3 +270,4 @@ end
 %AH=(XX.'*XX)^-1*XX.'*Y1;
 %[h2,pValue2,stat2,cValue2,mles2] = jcontest(Y,1,'BCon',[1 -1 -1]','lags',2);
 end
+%}
