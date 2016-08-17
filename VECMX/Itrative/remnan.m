@@ -14,8 +14,4 @@ Y2(ii,:)=[];
 Y3(ii,:)=[];
 Y4(ii,:)=[];
 
-<<<<<<< HEAD
 end
-=======
-end
->>>>>>> origin/master
